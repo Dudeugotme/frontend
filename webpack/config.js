@@ -48,6 +48,7 @@ var plugins = [
   // of it's bootstrapping JS. This file will change on every compilation.
   new webpack.optimize.CommonsChunkPlugin({ names: ["emojis", "vendor", "loader"], chunks: ["emojis", "vendor", "loader"] }),
 
+
   // After Webpack compilation, spit out a 'manifest.json' file with a mapping
   // of file name, to compiled name.
   new AssetsPlugin({
@@ -156,6 +157,7 @@ module.exports = {
           {
             loader: 'postcss-loader',
             options: {
+              ident: 'postcss',
               plugins: function() {
                 return [
                   require("postcss-import")(),
