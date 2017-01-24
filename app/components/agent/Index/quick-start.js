@@ -7,8 +7,6 @@ import classNames from 'classnames';
 import Emojify from '../../shared/Emojify';
 import Panel from '../../shared/Panel';
 
-import 'highlight.js/styles/atom-one-light.css';
-
 // Grab guides from the file system (at ../../docs)
 const GUIDES = ((guideRequire) =>
   guideRequire.keys().map((guidePath) =>

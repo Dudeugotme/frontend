@@ -30,6 +30,8 @@
 @import 'display';
 @import 'emoji';
 
+@import 'highlight.js/styles/atom-one-light.css';
+
 :root {
   --black:  #111111;
   --gray: #DDDDDD;
