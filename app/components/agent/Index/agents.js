@@ -2,11 +2,14 @@ import React from 'react';
 import Relay from 'react-relay';
 import { seconds } from 'metrick/duration';
 import shallowCompare from 'react-addons-shallow-compare';
+import throttle from 'throttleit';
 
 import Panel from '../../shared/Panel';
 import Button from '../../shared/Button';
 import Spinner from '../../shared/Spinner';
 import { formatNumber } from '../../../lib/number';
+
+import PusherStore from '../../../stores/PusherStore';
 
 import AgentRow from './row';
 import Search from './search';
@@ -34,17 +37,53 @@ class Agents extends React.Component {
   };
 
   componentDidMount() {
-    this._agentListRefreshInterval = setInterval(this.fetchUpdatedData, 10::seconds);
-    this.props.relay.setVariables({ isMounted: true });
+    this.props.relay.setVariables(
+      {
+        isMounted: true
+      },
+      (readyState) => {
+        if (readyState.done) {
+          PusherStore.on('organization_stats:change', this.fetchUpdatedData);
+          this.startTimeout();
+        }
+      }
+    );
   }
 
   componentWillUnmount() {
-    clearInterval(this._agentListRefreshInterval);
+    PusherStore.off('organization_stats:change', this.fetchUpdatedData);
+    clearTimeout(this._agentListRefreshTimeout);
   }
 
-  fetchUpdatedData = () => {
-    this.props.relay.forceFetch(true);
+  // We refresh the data under 2 circumstances. The refresh happens on what
+  // ever happens first.
+  //
+  // 1. We receive an `organization_stats:change` push event
+  // 2. 10 seconds have passed
+  startTimeout = () => {
+    this._agentListRefreshTimeout = setTimeout(
+      this.fetchUpdatedData,
+      10::seconds
+    );
   };
+
+  // Throttle the `fetchUpdatedData` function so we don't ever reload the
+  // entire list more than once every 3 seconds
+  fetchUpdatedData = throttle(
+    () => {
+      this.props.relay.forceFetch(
+        true,
+        (readyState) => {
+          if (readyState.done) {
+            // Start a timeout that will cause the data to be refreshed again
+            // in a few seconds time
+            this.startTimeout();
+          }
+        }
+      );
+    },
+    3::seconds
+  );
 
   shouldComponentUpdate(nextProps, nextState) {
     return shallowCompare(this, nextProps, nextState);

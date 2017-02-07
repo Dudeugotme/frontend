@@ -17,14 +17,18 @@ import AgentStopMutation from '../../mutations/AgentStop';
 class AgentShow extends React.Component {
   static propTypes = {
     agent: React.PropTypes.shape({
-      id: React.PropTypes.string.isRequired,
-      name: React.PropTypes.string.isRequired,
-      connectionState: React.PropTypes.string.isRequired,
+      id: React.PropTypes.string,
+      name: React.PropTypes.string,
+      connectionState: React.PropTypes.string,
       permissions: React.PropTypes.shape({
         agentStop: React.PropTypes.shape({
-          allowed: React.PropTypes.bool.isRequired
-        }).isRequired
-      }).isRequired
+          allowed: React.PropTypes.bool
+        })
+      }),
+      organization: React.PropTypes.shape({
+        name: React.PropTypes.string,
+        slug: React.PropTypes.string
+      })
     }),
     relay: React.PropTypes.object.isRequired
   };
@@ -34,7 +38,14 @@ class AgentShow extends React.Component {
   };
 
   componentDidMount() {
-    this._agentRefreshInterval = setInterval(this.fetchUpdatedData, 5::seconds);
+    // Only bother setting up the delayed load and refresher if we've got an
+    // actual agent to play with.
+    if (this.props.agent && this.props.agent.id) {
+      // This will cause a full refresh of the data every 3 seconds. This seems
+      // very low, but chances are people aren't really looking at this page
+      // for long periods of time.
+      this._agentRefreshInterval = setInterval(this.fetchUpdatedData, 3::seconds);
+    }
   }
 
   componentWillUnmount() {
@@ -47,8 +58,8 @@ class AgentShow extends React.Component {
 
   renderExtraItem(title, content) {
     return (
-      <li key={title}>
-        <strong className="black">{title}:</strong> {content}
+      <li key={title} style={{ marginTop: 3 }}>
+        <strong className="dark-gray">{title}:</strong> {content}
       </li>
     );
   }
@@ -77,7 +88,7 @@ class AgentShow extends React.Component {
     }
 
     if (agent.operatingSystem) {
-      extras.push(this.renderExtraItem('OS', agent.operatingSystem));
+      extras.push(this.renderExtraItem('OS', agent.operatingSystem.name));
     }
 
     if (agent.priority) {
@@ -157,8 +168,20 @@ class AgentShow extends React.Component {
   };
 
   render() {
-    const agent = this.props.agent;
+    // If we don't have an agent object, or we do but it doesn't have an id
+    // (perhaps Relay gave us an object but it's empty) then we can safely
+    // assume that it's a 404.
+    if (!this.props.agent || !this.props.agent.id) {
+      return (
+        <DocumentTitle title={`Agents / No Agent Found`}>
+          <PageWithContainer>
+            <p>No agent could be found!</p>
+          </PageWithContainer>
+        </DocumentTitle>
+      );
+    }
 
+    const agent = this.props.agent;
     const connectionStateClassName = getColourForConnectionState(agent.connectionState);
 
     let metaDataContent = 'None';
@@ -167,13 +190,12 @@ class AgentShow extends React.Component {
     }
 
     return (
-      <DocumentTitle title={`Agents / ${agent.name} · ${agent.organization.name}`}>
+      <DocumentTitle title={`Agents / ${this.props.agent.name} · ${this.props.agent.organization.name}`}>
         <PageWithContainer>
-          <Panel>
-            <Panel.Header>{agent.name}</Panel.Header>
-
-            <Panel.Row>
-              <div className="sm-col sm-right-align sm-col-3 p2">
+          <Panel className="sm-col-10 mx-auto">
+            <Panel.Header>{this.props.agent.name}</Panel.Header>
+            <Panel.Row key="info">
+              <div className="sm-col sm-right-align sm-col-3 p2 bold">
                 Status
               </div>
               <div className="sm-col sm-col-9 p2">
@@ -189,12 +211,12 @@ class AgentShow extends React.Component {
               </div>
             </Panel.Row>
 
-            <Panel.Row>
-              <div className="sm-col sm-right-align sm-col-3 p2">
+            <Panel.Row key="meta-data">
+              <div className="sm-col sm-right-align sm-col-3 p2 bold">
                 Meta Data
               </div>
               <div className="left sm-col-9 p2">
-                <pre className="black bg-silver rounded border border-gray p1 m0 monospace">{metaDataContent}</pre>
+                <pre className="black bg-silver rounded border border-gray py1 px2 m0 mb1 monospace" style={{ fontSize: 13 }}>{metaDataContent}</pre>
                 <small className="dark-gray">
                   You can use the agent’s meta-data to target the agent in your pipeline’s step configuration, or to set the agent’s queue.
                   See the <a className="blue hover-navy text-decoration-none hover-underline" href="/docs/agent/agent-meta-data">Agent Meta-data Documentation</a> and <a className="blue hover-navy text-decoration-none hover-underline" href="/docs/agent/queues">Agent Queues Documentation</a> for more details.
@@ -226,6 +248,7 @@ class AgentShow extends React.Component {
                 outline={true}
                 loading={this.state.stopping ? "Stopping…" : false}
                 onClick={this.handleStopButtonClick}
+                className="mb1"
               >
                 Stop Agent
               </Button>
@@ -247,6 +270,12 @@ export default Relay.createContainer(AgentShow, {
     agent: () => Relay.QL`
       fragment on Agent {
         ${AgentStopMutation.getFragment('agent')}
+        id
+        name
+        organization {
+          name
+          slug
+        }
         connectedAt
         connectionState
         disconnectedAt
@@ -257,12 +286,9 @@ export default Relay.createContainer(AgentShow, {
           ${JobLink.getFragment('job')}
         }
         lostAt
-        name
         metaData
-        operatingSystem
-        organization {
+        operatingSystem {
           name
-          slug
         }
         permissions {
           agentStop {

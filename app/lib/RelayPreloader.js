@@ -2,6 +2,46 @@ import Relay from 'react-relay';
 import fromGraphQL from 'react-relay/lib/fromGraphQL';
 
 const QUERIES = {
+  "build_header/build": Relay.QL`
+    query BuildsShowBuild($build: ID!) {
+      build(slug: $build) {
+        id
+        createdBy {
+          __typename
+          ...on UnregisteredUser {
+            name
+            email
+            avatar {
+              url
+            }
+          }
+          ...on User {
+            id
+            name
+            email
+            avatar {
+              url
+            }
+          }
+        }
+      }
+    }
+  `,
+  "build_header/viewer": Relay.QL`
+    query BuildsShowViewer {
+      viewer {
+        emails(first: 50) {
+          edges {
+            node {
+              id
+              address
+              verified
+            }
+          }
+        }
+      }
+    }
+  `,
   "organization_show/viewer": Relay.QL`
     query PipelinesListViewer {
       viewer {
@@ -64,7 +104,7 @@ const QUERIES = {
                   hasPreviousPage
                 }
               }
-              builds(first: 1, branch: "%default", state: [ BUILD_STATE_PASSED, BUILD_STATE_FAILED, BUILD_STATE_CANCELED, BUILD_STATE_BLOCKED ]) {
+              builds(first: 1, branch: "%default", state: [ BUILD_STATE_RUNNING, BUILD_STATE_CANCELING, BUILD_STATE_PASSED, BUILD_STATE_FAILED, BUILD_STATE_CANCELED, BUILD_STATE_BLOCKED ]) {
                 edges {
                   node {
                     id
@@ -192,8 +232,8 @@ const QUERIES = {
       }
     }
   `,
-  "agents/organization": Relay.QL`
-    query GetOrganization($organization: ID!) {
+  "agents/index": Relay.QL`
+    query AgentIndex($organization: ID!) {
       organization(slug: $organization) {
         id
         name
@@ -206,6 +246,64 @@ const QUERIES = {
         }
       }
     }
+  `,
+  "agents/show": Relay.QL`
+    query($slug: ID!) {
+      agent(slug: $slug) {
+        id
+        name
+        organization {
+          id
+          name
+          slug
+        }
+        connectedAt
+        connectionState
+        disconnectedAt
+        hostname
+        id
+        ipAddress
+        job {
+          __typename
+          ... on JobTypeCommand {
+            id
+            label
+            command
+            url
+            build {
+              number
+              pipeline {
+                name
+                id
+              }
+              id
+            }
+          }
+        }
+        lostAt
+        metaData
+        operatingSystem {
+          name
+        }
+        permissions {
+          agentStop {
+            allowed
+            code
+            message
+          }
+        }
+        pid
+        pingedAt
+        stoppedAt
+        stoppedBy {
+          name
+          id
+        }
+        userAgent
+        uuid
+        version
+      }
+    }
   `
 };
 
@@ -214,7 +312,7 @@ class RelayPreloader {
     // Get the concrete query
     const concrete = QUERIES[id];
     if (!concrete) {
-      throw "No concrete query defined for `" + id + "`";
+      throw new Error(`No concrete query defined for \`${id}\``);
     }
 
     // Create a Relay-readable GraphQL query with the variables loaded in
