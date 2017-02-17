@@ -3,12 +3,11 @@ steps:
     plugins:
       docker-compose:
         build: frontend
-        image-repository: index.docker.io/buildkiteci/frontend
+        image-repository: antic.website:5000/buildkiteci/frontend
     env:
       RAILS_ENV: test
     agents:
-      queue: elastic-builders
-
+      queue: default
   - wait
 
   - name: ":eslint:"
